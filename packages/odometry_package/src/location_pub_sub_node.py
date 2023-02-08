@@ -5,7 +5,7 @@ import rospy
 import rosbag
 from duckietown.dtros import DTROS, NodeType, TopicType, DTParam, ParamType
 from duckietown_msgs.msg import Pose2DStamped, WheelEncoderStamped
-from tf2_ros import TransformBroadcaster
+from std_msgs.msg import Float32, String
 
 class LocationNode(DTROS):
 
@@ -102,7 +102,10 @@ class LocationNode(DTROS):
         self.rotation = ((distance_right-distance_left)/(2*self._baseline))
         self.rotation = self.r_value(self.rotation)
         self.robot_frame [2] = self.rotation
-
+        
+        self.world_frame [0] = self.robot_frame[0] * np.cos(self.robot_frame[2])
+        self.world_frame [1] = self.robot_frame [1] * np.sin(self.robot_frame[2])
+        self.world_frame [2] = self.robot_frame[2]
         # rospy.loginfo("Distance: " + str(self.dist))
         # rospy.loginfo("The  arc distance: " + str(self.rotation))
         # rospy.loginfo("The time: " + str(self.total_time_recorded))
@@ -123,6 +126,24 @@ class LocationNode(DTROS):
         odometry_msg.y = 0
         odometry_msg.theta = angle
         self.pub_odometry.publish(odometry_msg)
+
+    # def write_to_rosbag (self):
+
+    #     bag = rosbag.Bag('world_frame.bag', 'w')
+
+    #     try:
+    #         s = String()
+    #         s.data = 'foo'
+
+    #         i = Float32()
+    #         i.data = 42
+
+    #         bag.write('chatter', s)
+    #         bag.write('numbers', i)
+    #     finally:
+    #         bag.close()
+
+
 
    # Function being used reset our message values for a clean shutdown
     # def stop_recordings(self):

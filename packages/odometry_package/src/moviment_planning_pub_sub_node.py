@@ -31,6 +31,10 @@ class MovimentPlanningNode(DTROS):
         self.set_start_angle = True
         self.run_led = 0
         self.goal_reached = [True, False, False]
+        
+        self.state = 1
+        self.stop = False
+        self.runing = True
         # Setup Service
 
         led_emitter = "/%s" % os.environ['VEHICLE_NAME'] + "/led_emitter_node/set_pattern"
@@ -59,10 +63,10 @@ class MovimentPlanningNode(DTROS):
 
         self.distance_reached = self.dist - self.starting_distance
         self.angle_reached = self.angle - self.starting_angle
-        rospy.loginfo("The encoder angle measurement: " + str(self.angle))
-        rospy.loginfo("The starting angle measurement: " + str(self.starting_angle))
-        rospy.loginfo("The current angle measurement: " + str(self.angle_reached))
-        rospy.loginfo("Action running: " + str(self.goal_reached))
+        # rospy.loginfo("The encoder angle measurement: " + str(self.angle))
+        # rospy.loginfo("The starting angle measurement: " + str(self.starting_angle))
+        # rospy.loginfo("The current angle measurement: " + str(self.angle_reached))
+        rospy.loginfo("Distance: " + str(self.distance_reached))
         #self.execution_time = data.header.stamp
         #rospy.loginfo("Execution Time: " + str(self.execution_time))
         
@@ -79,7 +83,7 @@ class MovimentPlanningNode(DTROS):
     #     self.changePattern(str(msg.pattern_name.data))
     #     return ChangePatternResponse()
     
-    def LED_emitor_client (self, pattern_name):
+    def LED_emitor_client(self, pattern_name):
         color = String()
         color.data = pattern_name
         self.change_pattern(color)
@@ -90,6 +94,9 @@ class MovimentPlanningNode(DTROS):
         msg.vel_left = v_left
         msg.vel_right = v_right
         self.pub_wheel_command.publish(msg)
+
+        if self.stop:
+            self.runing = False
 
     def set_initial_distance(self):
         
@@ -131,17 +138,46 @@ class MovimentPlanningNode(DTROS):
                 self.set_velocity(0.4, 0.4)
         elif self.distance_reached > 1.22:
                 self.set_velocity(0.0, 0.0)
+        
+    def is_near(self, dist):
+        epsilon = 0.2
+        if abs(self.distance_reached - dist) < epsilon:
+            return True
+        return False
+
+    def angle_is_near(self, theta):
+        epsilon = 0.2
+        rospy.loginfo(f"theta: {self.angle_reached}")
+        if abs(self.angle_reached - theta) < epsilon:
+            return True
+        return False
 
                
     def run(self):
         while not rospy.is_shutdown():
             
             self.LED_state("RED","GREEN",self.run_led)
-            self.set_initial_angle()
-            if self.angle_reached == 0:
-                self.set_velocity(0.4, -0.4)
-            elif self.angle_reached < -(np.pi/2)+0.4:
+            self.set_initial_distance()
+            # if self.angle_reached == 0:
+            #     self.set_velocity(0.4, -0.4)
+            # elif self.angle_reached < -(np.pi/2)+0.4:
+            #     self.set_velocity(0.0, 0.0)
+            if self.is_near(0) and self.state == 1:
+                self.state += 1
+                self.set_velocity(0.6, 0.6)
+                self.LED_emitor_client("RED")
+                print("GOING STTROIGH")
+            elif self.is_near(1.25) and self.state == 2:
+                self.state += 1
+                self.set_velocity(-0.6, 0.6)
+                self.LED_emitor_client("BLUE")
+                print("TURNING")
+            elif self.angle_is_near(np.pi/2) and self.state == 3:
+                self.state += 1
                 self.set_velocity(0.0, 0.0)
+                self.stop = True
+                self.LED_emitor_client("GREEN")
+                print("STOPPING")
 
            
 
