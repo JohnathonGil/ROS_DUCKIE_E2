@@ -125,9 +125,9 @@ class OdometryNode(DTROS):
        
 
 if __name__ == '__main__':
+    print("################################################")
     node = OdometryNode(node_name='my_odometry_node')
     # Keep it spinning to keep the node alive
-
     while not rospy.is_shutdown():
             if node.arc_distance == 0:
                 node.set_velocity(0.4, -0.4)
@@ -138,5 +138,4 @@ if __name__ == '__main__':
             #     node.set_velocity(-0.4,-0.4)
             # if node.dist < 0.0:
             #     node.set_velocity(0.0,0.0)
-    rospy.spin()
     rospy.loginfo("wheel_encoder_node is up and running...")

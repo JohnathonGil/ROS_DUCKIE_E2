@@ -6,7 +6,7 @@ import rosbag
 from duckietown.dtros import DTROS, NodeType, TopicType, DTParam, ParamType
 from duckietown_msgs.msg import Pose2DStamped, WheelsCmdStamped
 from duckietown_msgs.srv import ChangePattern
-from std_msgs.msg import Header, Float32, String
+from std_msgs.msg import Header, Float32, String, Bool
 from tf2_ros import TransformBroadcaster
 
 class MovimentPlanningNode(DTROS):
@@ -16,6 +16,7 @@ class MovimentPlanningNode(DTROS):
     # Initialize the DTROS parent class
         super(MovimentPlanningNode, self).__init__(node_name=node_name, node_type=NodeType.PERCEPTION)
         self.veh_name = rospy.get_namespace().strip("/")
+
    
     # Intialize required parameters
         self.dist = 0
@@ -37,6 +38,7 @@ class MovimentPlanningNode(DTROS):
         self.running = True
         self.cmd_start_dist = 0
         self.cmd_start_angle = 0
+        self.cmd_start = 0
         self.vel = [0, 0]
         # Setup Service
 
@@ -44,23 +46,29 @@ class MovimentPlanningNode(DTROS):
         rospy.wait_for_service(led_emitter)
         self.change_pattern = rospy.ServiceProxy(led_emitter, ChangePattern)
 
+        
+
+
         # self.current_pattern_name = "LIGHT_OFF"
         # self.changePattern(self.current_pattern_name)
 
     #Subscriber
         robot_pose = "/%s" % os.environ['VEHICLE_NAME'] + "/wheel_odometry/pose"
         self.sub_location = rospy.Subscriber(robot_pose, Pose2DStamped, self.cb_location_data, queue_size=1)
+
+
         
     # Publisher
         wheels_cmd = "/%s" % os.environ['VEHICLE_NAME'] + "/wheels_driver_node/wheels_cmd"
         self.pub_wheel_command = rospy.Publisher(wheels_cmd, WheelsCmdStamped, queue_size=1)
+
+        self.exit_pub = rospy.Publisher("/exit", Bool, queue_size=1)
 
         #os.system("dts duckiebot demo --demo_name led_emitter_node --duckiebot_name $BOT --package_name led_emitter --image duckietown/dt-core:daffy-arm64v8")
 
         self.log("Initialized")
 
     def cb_location_data(self, data):
-        
         self.dist = data.x
         self.angle = data.theta
 
@@ -91,15 +99,23 @@ class MovimentPlanningNode(DTROS):
         color.data = pattern_name
         self.change_pattern(color)
       
-    def set_velocity(self, v_left, v_right):
+    def set_velocity(self):
 
         msg = WheelsCmdStamped()
-        msg.vel_left = v_left
-        msg.vel_right = v_right
+        msg.vel_left = self.vel[0]
+        msg.vel_right = self.vel[1]
         self.pub_wheel_command.publish(msg)
 
         if self.stop:
             self.running = False
+            rospy.signal_shutdown("ROBO MOVED")
+
+    def publish_exit(self):
+        msg  = Bool()
+        msg.data = self.stop
+        self.exit_pub.publish(msg)
+
+        
 
     def set_initial_distance(self):
         
@@ -143,55 +159,75 @@ class MovimentPlanningNode(DTROS):
                 self.set_velocity(0.0, 0.0)
         
     def is_near(self, dist):
-        epsilon = 0.2
-        print(f"NEAR: {self.distance_reached}")
-        if abs(self.distance_reached - dist) < epsilon:
+        epsilon = 0.3
+        print(f"NEAR: {self.dist}, GOAL: {dist}, DIFF: {abs(self.dist - dist)}")
+        if abs(self.dist - dist) < epsilon or self.dist > dist:
             return True
         return False
 
     def angle_is_near(self, theta):
         epsilon = 0.2
-        rospy.loginfo(f"theta: {self.angle_reached}")
-        if abs(self.angle_reached - theta) < epsilon:
+        rospy.loginfo(f"theta: {self.angle}, GOAL: {theta}, DIFF: {abs(self.angle - theta)}")
+        if abs(self.angle - theta) < epsilon or abs(self.angle) > abs(theta):
             return True
         return False
 
-    def run_cmd(self, cmd):
-        print(f"diff dist: {cmd['dist'] - self.cmd_start_dist}, diff angle: {cmd['angle'] - self.cmd_start_angle}")
-        return self.is_near(cmd["dist"] - self.cmd_start_dist) and self.angle_is_near(cmd["angle"] - self.cmd_start_angle) and self.state == cmd["state"]
+    def run_cmd(self, cmd, state):
+        print(f"diff dist: {cmd['dist'] + self.cmd_start_dist}, diff angle: {cmd['angle'] + abs(self.cmd_start_angle)}")
+        return self.is_near(cmd["dist"] + self.cmd_start_dist) and self.angle_is_near(cmd["angle"] + abs(self.cmd_start_angle)) and self.state == state
 
                
     def run(self):
-        while not rospy.is_shutdown() and self.running:
+        #self.LED_state("RED","GREEN",self.run_led)
+
+        #self.set_initial_distance()
+        # if self.angle_reached == 0:
+        #     self.set_velocity(0.4, -0.4)
+        # elif self.angle_reached < -(np.pi/2)+0.4:
+        #     self.set_velocity(0.0, 0.0)
+
+        cmd = [
+        # once these conditions are met |  do this  
+
             
-            #self.LED_state("RED","GREEN",self.run_led)
+            {"dist": 0, "angle": 0, "vel": [0, 0], "col": "RED", "wait": 5},    # wait 5 secs
+            {"dist": 0, "angle": 0, "vel": [0.4, -0.4], "col": "BLUE"},         # turn right
+            {"dist": 0, "angle": -np.pi/2, "vel": [0.5, 0.5], "col": "BLUE"},   # go straight 
+            {"dist": 1.25, "angle": 0, "vel": [-0.4, 0.4], "col": "BLUE"},      # turn left
+            {"dist": 0, "angle": (-np.pi) / 2, "vel": [0.5, 0.5], "col": "BLUE"},    # go straight
+            {"dist": 1.25, "angle": 0,  "vel": [-0.4, 0.4], "col": "BLUE"},     #turn left
+            {"dist": 0, "angle": np.pi/2, "vel": [0.5, 0.5], "col": "BLUE"},    # go straight
+            {"dist": 1.25, "angle": 0, "vel": [0, 0], "col": "RED", "wait": 5},    # wait 5 secs
+            {"dist": 0, "angle": 0,  "vel": [-0.4, 0.4], "col": "GREEN"},     #turn left
+            {"dist": 0, "angle": np.pi, "vel": [0.5, 0.5], "col": "GREEN"},    # go straight
+            {"dist": 0, "angle": 0, "vel": [0.4, -0.4], "col": "GREEN"},         # turn right
+            {"dist": 0, "angle": np.pi/2, "vel": [0, 0], "col": "LIGHT_OFF", "wait": 0}
 
-            self.set_initial_distance()
-            # if self.angle_reached == 0:
-            #     self.set_velocity(0.4, -0.4)
-            # elif self.angle_reached < -(np.pi/2)+0.4:
-            #     self.set_velocity(0.0, 0.0)
-
-            cmd = [
-                {"dist": 0, "angle": 0, "state": 1, "vel": [0.6, 0.6], "col": "RED"},
-                {"dist": 1.25, "angle": 0, "state": 2, "vel": [-0.6, 0.6], "col": "BLUE"},
-                {"dist": 0, "angle": np.pi/2, "state": 3, "vel": [0, 0], "col": "LIGHT_OFF"}
-
-            ]
+        ]
 
 
-            self.set_velocity(*self.vel)
-            curr_cmd = cmd[self.state-1]
-            if self.run_cmd(curr_cmd) and not self.stop:
-                self.cmd_start_dist = self.distance_reached
-                self.cmd_start_angle = self.angle_reached
-                self.state += 1
-                print(curr_cmd)
-                self.vel = curr_cmd["vel"]
-                self.LED_emitor_client(curr_cmd["col"])
-                print(f"EXECUTING STATE: {self.state-1}")
-                if self.state > len(cmd):
-                    self.stop = True
+        #self.set_velocity(*self.vel)
+        curr_cmd = cmd[self.state-1]
+        if self.run_cmd(curr_cmd, self.state) and not self.stop:
+            self.cmd_start_dist = self.dist
+            self.cmd_start_angle = self.angle
+            self.cmd_start = rospy.Time.now().to_sec()
+            self.state += 1
+            print(curr_cmd)
+            self.vel = curr_cmd["vel"]
+            self.LED_emitor_client(curr_cmd["col"])
+            rospy.sleep(0.1)
+            if self.vel == [0, 0]:
+                self.set_velocity()
+                rospy.sleep(curr_cmd["wait"])
+            print(f"EXECUTING STATE: {self.state-1}")
+            if self.state > len(cmd):
+                self.stop = True
+
+
+        
+
+
 
             # if self.is_near(0) and self.state == 1:
             #     self.cmd_start_dist = self.dist
@@ -216,5 +252,9 @@ class MovimentPlanningNode(DTROS):
 if __name__ == '__main__':
     # create the node
     node = MovimentPlanningNode(node_name='moviment_planning_node')
-    node.run()
+    while not rospy.is_shutdown() and node.running:
+        node.run()
+        node.publish_exit()
+        node.set_velocity()
+        rospy.sleep(0.1)
 

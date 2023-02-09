@@ -5,7 +5,7 @@ import rospy
 import rosbag
 from duckietown.dtros import DTROS, NodeType, TopicType, DTParam, ParamType
 from duckietown_msgs.msg import Pose2DStamped, WheelEncoderStamped
-from std_msgs.msg import Float32, String
+from std_msgs.msg import Float32, String, Bool
 
 class LocationNode(DTROS):
 
@@ -29,6 +29,8 @@ class LocationNode(DTROS):
         self.rotation = 0.0
         self.dist = 0.0
 
+        self.running = True
+
         #Need constants for axel length and wheel radius
         self._baseline = 0.05
         self._radius = 0.0318
@@ -45,6 +47,8 @@ class LocationNode(DTROS):
         self.sub_encoder_ticks_left = rospy.Subscriber(left_wheel_topic, WheelEncoderStamped, self.cb_encoder_data, callback_args="left", queue_size=1)
         right_wheel_topic = "/%s" % os.environ['VEHICLE_NAME'] + "/right_wheel_encoder_node/tick"
         self.sub_encoder_ticks_right = rospy.Subscriber(right_wheel_topic, WheelEncoderStamped, self.cb_encoder_data, callback_args="right", queue_size=1)
+
+        self.sub_encoder_ticks_right = rospy.Subscriber("/exit", Bool, self.cb_exit, queue_size=1)
 
         #Publishing the odometry information
         odometry_topic = "/%s" % os.environ['VEHICLE_NAME'] + "/wheel_odometry/pose"
@@ -86,6 +90,10 @@ class LocationNode(DTROS):
         self.total_time_recorded = self.r_value(self.total_time_recorded)
         self.new_robot_frame(self.left_ticks, self.right_ticks)
 
+    def cb_exit(self, msg):
+        if msg.data:
+            self.running = False
+            rospy.signal_shutdown("ROBO MOVED")
 
     # Set the robot frame based on the data obtained by the encoders
     def new_robot_frame (self, left_ticks, right_ticks):
@@ -110,7 +118,7 @@ class LocationNode(DTROS):
         # rospy.loginfo("The  arc distance: " + str(self.rotation))
         # rospy.loginfo("The time: " + str(self.total_time_recorded))
 
-        self.publish_info(self.dist, self.rotation)
+        self.publish_info()
  
     # This function is to round up our float values by two decimals
     def r_value(self, value):
@@ -119,12 +127,11 @@ class LocationNode(DTROS):
         return r_val
 
     # Publish our odometry to our topic
-    def publish_info(self, distance, angle):
-    
+    def publish_info(self):
         odometry_msg = Pose2DStamped()
-        odometry_msg.x = distance
+        odometry_msg.x = self.dist
         odometry_msg.y = 0
-        odometry_msg.theta = angle
+        odometry_msg.theta = self.rotation
         self.pub_odometry.publish(odometry_msg)
 
     # def write_to_rosbag (self):
@@ -165,6 +172,7 @@ class LocationNode(DTROS):
 if __name__ == '__main__':
     node = LocationNode(node_name='my_location_node')
     # Keep it spinning to keep the node alive
+    #node.publish_info()
     rospy.spin()
     rospy.loginfo("wheel_encoder_node is up and running...")
 
