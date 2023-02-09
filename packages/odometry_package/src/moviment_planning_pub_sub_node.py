@@ -34,7 +34,10 @@ class MovimentPlanningNode(DTROS):
         
         self.state = 1
         self.stop = False
-        self.runing = True
+        self.running = True
+        self.cmd_start_dist = 0
+        self.cmd_start_angle = 0
+        self.vel = [0, 0]
         # Setup Service
 
         led_emitter = "/%s" % os.environ['VEHICLE_NAME'] + "/led_emitter_node/set_pattern"
@@ -66,7 +69,7 @@ class MovimentPlanningNode(DTROS):
         # rospy.loginfo("The encoder angle measurement: " + str(self.angle))
         # rospy.loginfo("The starting angle measurement: " + str(self.starting_angle))
         # rospy.loginfo("The current angle measurement: " + str(self.angle_reached))
-        rospy.loginfo("Distance: " + str(self.distance_reached))
+        #rospy.loginfo("Distance: " + str(self.distance_reached))
         #self.execution_time = data.header.stamp
         #rospy.loginfo("Execution Time: " + str(self.execution_time))
         
@@ -96,7 +99,7 @@ class MovimentPlanningNode(DTROS):
         self.pub_wheel_command.publish(msg)
 
         if self.stop:
-            self.runing = False
+            self.running = False
 
     def set_initial_distance(self):
         
@@ -141,6 +144,7 @@ class MovimentPlanningNode(DTROS):
         
     def is_near(self, dist):
         epsilon = 0.2
+        print(f"NEAR: {self.distance_reached}")
         if abs(self.distance_reached - dist) < epsilon:
             return True
         return False
@@ -152,32 +156,60 @@ class MovimentPlanningNode(DTROS):
             return True
         return False
 
+    def run_cmd(self, cmd):
+        print(f"diff dist: {cmd['dist'] - self.cmd_start_dist}, diff angle: {cmd['angle'] - self.cmd_start_angle}")
+        return self.is_near(cmd["dist"] - self.cmd_start_dist) and self.angle_is_near(cmd["angle"] - self.cmd_start_angle) and self.state == cmd["state"]
+
                
     def run(self):
-        while not rospy.is_shutdown():
+        while not rospy.is_shutdown() and self.running:
             
-            self.LED_state("RED","GREEN",self.run_led)
+            #self.LED_state("RED","GREEN",self.run_led)
+
             self.set_initial_distance()
             # if self.angle_reached == 0:
             #     self.set_velocity(0.4, -0.4)
             # elif self.angle_reached < -(np.pi/2)+0.4:
             #     self.set_velocity(0.0, 0.0)
-            if self.is_near(0) and self.state == 1:
+
+            cmd = [
+                {"dist": 0, "angle": 0, "state": 1, "vel": [0.6, 0.6], "col": "RED"},
+                {"dist": 1.25, "angle": 0, "state": 2, "vel": [-0.6, 0.6], "col": "BLUE"},
+                {"dist": 0, "angle": np.pi/2, "state": 3, "vel": [0, 0], "col": "LIGHT_OFF"}
+
+            ]
+
+
+            self.set_velocity(*self.vel)
+            curr_cmd = cmd[self.state-1]
+            if self.run_cmd(curr_cmd) and not self.stop:
+                self.cmd_start_dist = self.distance_reached
+                self.cmd_start_angle = self.angle_reached
                 self.state += 1
-                self.set_velocity(0.6, 0.6)
-                self.LED_emitor_client("RED")
-                print("GOING STTROIGH")
-            elif self.is_near(1.25) and self.state == 2:
-                self.state += 1
-                self.set_velocity(-0.6, 0.6)
-                self.LED_emitor_client("BLUE")
-                print("TURNING")
-            elif self.angle_is_near(np.pi/2) and self.state == 3:
-                self.state += 1
-                self.set_velocity(0.0, 0.0)
-                self.stop = True
-                self.LED_emitor_client("GREEN")
-                print("STOPPING")
+                print(curr_cmd)
+                self.vel = curr_cmd["vel"]
+                self.LED_emitor_client(curr_cmd["col"])
+                print(f"EXECUTING STATE: {self.state-1}")
+                if self.state > len(cmd):
+                    self.stop = True
+
+            # if self.is_near(0) and self.state == 1:
+            #     self.cmd_start_dist = self.dist
+            #     self.state += 1
+            #     self.set_velocity(0.6, 0.6)
+            #     self.LED_emitor_client("RED")
+            #     print("GOING STTROIGH")
+            # elif self.is_near(1.25) and self.state == 2:
+            #     self.state += 1
+            #     self.set_velocity(-0.6, 0.6)
+            #     self.LED_emitor_client("BLUE")
+            #     print("TURNING")
+            # elif self.angle_is_near(np.pi/2) and self.state == 3:
+            #     self.state += 1
+            #     self.set_velocity(0.0, 0.0)
+            #     self.stop = True
+            #     self.LED_emitor_client("GREEN")
+            #     print("STOPPING")
 
            
 
@@ -185,5 +217,4 @@ if __name__ == '__main__':
     # create the node
     node = MovimentPlanningNode(node_name='moviment_planning_node')
     node.run()
-    # keep spinning
-    rospy.spin()    
+
