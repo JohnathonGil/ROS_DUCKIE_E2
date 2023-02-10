@@ -41,9 +41,9 @@ class MovimentPlanningNode(DTROS):
         self.cmd_start = 0
         self.vel = [0, 0]
 
-        self.forward_vel = [0.45, 0.4]
-        self.left = [-0.42, 0.42]
-        self.right = [0.42, -0.42]
+        self.forward_vel = [0.44, 0.4]
+        self.left = [-0.445, 0.4]
+        self.right = [0.445, -0.4]
         # Setup Service
 
         led_emitter = "/%s" % os.environ['VEHICLE_NAME'] + "/led_emitter_node/set_pattern"
@@ -207,8 +207,8 @@ class MovimentPlanningNode(DTROS):
         cmd = [
         # once these conditions are met |  do this  
 
-            
-            #{"dist": 0, "angle": 0, "vel": [0, 0], "col": "RED", "wait": 5},    # wait 5 secs
+                    
+            {"dist": 0, "angle": 0, "vel": [0, 0], "col": "RED", "wait": 5},    # wait 5 secs
             {"dist": 0, "angle": 0, "vel": self.right, "col": "BLUE"},         # turn right
             {"dist": 0, "angle": -np.pi/2, "vel": self.forward_vel, "col": "BLUE"},   # go straight 
             {"dist": 1.25, "angle": 0, "vel": self.left, "col": "BLUE"},      # turn left
@@ -219,14 +219,34 @@ class MovimentPlanningNode(DTROS):
             {"dist": 0, "angle": 0,  "vel": self.left, "col": "GREEN"},     #turn left
             {"dist": 0, "angle": np.pi, "vel": self.forward_vel, "col": "GREEN"},    # go straight
             {"dist": 1.25, "angle": 0, "vel": self.right, "col": "GREEN"},         # turn right
-            {"dist": 0, "angle": -np.pi/2, "vel": [0, 0], "col": "LIGHT_OFF", "wait": 0}
-
+            {"dist": 0, "angle": -np.pi/2, "vel": self.forward_vel, "col": "GREEN"},    # go straight
+            {"dist": 1.25, "angle": 0, "vel": self.right, "col": "GREEN"},         # turn right
+            {"dist": 0, "angle": -np.pi/2, "vel": self.forward_vel, "col": "GREEN"},    # go straight
+            {"dist": 1.25, "angle": 0, "vel": [0, 0], "col": "RED", "wait": 5},    # wait 5 secs
+            "circle",
+            "end",    
+            {"dist": 0, "angle": 0, "vel": [0, 0], "col": "LIGHT_OFF", "wait": 0},
         ]
 
 
         #self.set_velocity(*self.vel)
         curr_cmd = cmd[self.state-1]
-        if self.run_cmd(curr_cmd, self.state) and not self.stop:
+
+        if curr_cmd == "circle":
+            print("CIRCLE_START", self.dist)
+            self.vel = [0.3, 0.6]
+            self.cmd_start_dist = self.dist
+            self.state += 1
+            self.LED_emitor_client("WHITE")
+            print(curr_cmd)
+        elif curr_cmd == "end" and self.is_near((1.25*np.pi) + self.cmd_start_dist):
+            print("CIRCEL_END", self.dist)
+            print(curr_cmd)
+            self.vel = [0, 0]
+            self.LED_emitor_client("LIGHT_OFF")
+            self.stop = True
+
+        elif type(curr_cmd) != str and self.run_cmd(curr_cmd, self.state) and not self.stop:
             self.pause()
             self.cmd_start_dist = self.dist
             self.cmd_start_angle = self.angle
