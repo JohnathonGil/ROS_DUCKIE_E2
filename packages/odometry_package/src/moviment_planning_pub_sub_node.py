@@ -41,10 +41,9 @@ class MovimentPlanningNode(DTROS):
         self.cmd_start = 0
         self.vel = [0, 0]
 
-        self.forward_vel = [0.44, 0.4]
-        self.left = [-0.445, 0.4]
-        self.right = [0.445, -0.4]
-        # Setup Service
+        self.forward_vel = [0.5, 0.57]
+        self.left = [-0.4, 0.4]
+        self.right = [0.4, -0.4]
 
         led_emitter = "/%s" % os.environ['VEHICLE_NAME'] + "/led_emitter_node/set_pattern"
         rospy.wait_for_service(led_emitter)
@@ -171,7 +170,7 @@ class MovimentPlanningNode(DTROS):
         return False
 
     def angle_is_near(self, theta):
-        epsilon = 0.5
+        epsilon = 0.3
         rospy.loginfo(f"theta: {self.angle}, GOAL: {theta}, DIFF: {abs(self.angle - theta)}")
         if abs(self.angle - theta) < epsilon :#or abs(self.angle) > abs(theta):
             print("#################CHANGING SPEED")
@@ -192,7 +191,7 @@ class MovimentPlanningNode(DTROS):
     def pause(self):
         self.vel = [0, 0]
         self.set_velocity()
-        rospy.sleep(0.5)
+        rospy.sleep(1)
 
                
     def run(self):
@@ -205,45 +204,54 @@ class MovimentPlanningNode(DTROS):
         #     self.set_velocity(0.0, 0.0)
 
         cmd = [
-        # once these conditions are met |  do this  
+            # once these conditions are met |  do this  
 
-                    
-            {"dist": 0, "angle": 0, "vel": [0, 0], "col": "RED", "wait": 5},    # wait 5 secs
-            {"dist": 0, "angle": 0, "vel": self.right, "col": "BLUE"},         # turn right
-            {"dist": 0, "angle": -np.pi/2, "vel": self.forward_vel, "col": "BLUE"},   # go straight 
-            {"dist": 1.25, "angle": 0, "vel": self.left, "col": "BLUE"},      # turn left
-            {"dist": 0, "angle": np.pi / 2, "vel": self.forward_vel, "col": "BLUE"},    # go straight
-            {"dist": 1.25, "angle": 0,  "vel": self.left, "col": "BLUE"},     #turn left
-            {"dist": 0, "angle": np.pi/2, "vel": self.forward_vel, "col": "BLUE"},    # go straight
-            {"dist": 1.25, "angle": 0, "vel": [0, 0], "col": "RED", "wait": 5},    # wait 5 secs
-            {"dist": 0, "angle": 0,  "vel": self.left, "col": "GREEN"},     #turn left
-            {"dist": 0, "angle": np.pi, "vel": self.forward_vel, "col": "GREEN"},    # go straight
-            {"dist": 1.25, "angle": 0, "vel": self.right, "col": "GREEN"},         # turn right
-            {"dist": 0, "angle": -np.pi/2, "vel": self.forward_vel, "col": "GREEN"},    # go straight
-            {"dist": 1.25, "angle": 0, "vel": self.right, "col": "GREEN"},         # turn right
-            {"dist": 0, "angle": -np.pi/2, "vel": self.forward_vel, "col": "GREEN"},    # go straight
-            {"dist": 1.25, "angle": 0, "vel": [0, 0], "col": "RED", "wait": 5},    # wait 5 secs
-            "circle",
-            "end",    
-            {"dist": 0, "angle": 0, "vel": [0, 0], "col": "LIGHT_OFF", "wait": 0},
+            
+
+            {"dist": 0, "angle": 0, "vel": [0, 0], "col": "RED", "wait": 5},        # wait 5 secs
+            {"dist": 0, "angle": 0, "vel": self.right, "col": "BLUE"},              # turn right
+            {"dist": 0, "angle": -np.pi/2, "vel": self.forward_vel, "col": "BLUE"}, # go straight 
+            {"dist": 1.25, "angle": 0, "vel": self.left, "col": "BLUE"},            # turn left
+            {"dist": 0, "angle": np.pi / 2, "vel": self.forward_vel, "col": "BLUE"},# go straight
+            {"dist": 1.25, "angle": 0,  "vel": self.left, "col": "BLUE"},           # turn left
+            {"dist": 0, "angle": np.pi/2, "vel": self.forward_vel, "col": "BLUE"},  # go straight
+            {"dist": 1.25, "angle": 0, "vel": [0, 0], "col": "RED", "wait": 5},     # wait 5 secs
+            {"dist": 0, "angle": 0,  "vel": self.left, "col": "GREEN"},             # turn left
+            {"dist": 0, "angle": np.pi, "vel": self.forward_vel, "col": "GREEN"},   # go straight
+            {"dist": 1.25, "angle": 0, "vel": self.right, "col": "GREEN"},          # turn right
+            {"dist": 0, "angle": -np.pi/2, "vel": self.forward_vel, "col": "GREEN"},# go straight
+            {"dist": 1.25, "angle": 0, "vel": self.right, "col": "GREEN"},          # turn right
+            {"dist": 0, "angle": -np.pi/2, "vel": self.forward_vel, "col": "GREEN"},# go straight
+            {"dist": 1.25, "angle": 0, "vel": [0, 0], "col": "RED", "wait": 5},     # wait 5 secs
+            {"dist": 0, "angle": 0, "vel": self.left, "col": "GREEN"},              # spin 180
+            {"dist": 0, "angle": np.pi, "vel": self.forward_vel, "col": "WHITE"},   # prep for circle
+            {"dist": 0.45, "angle": 0, "vel": [0, 0], "col": "WHITE", "wait": 0},  # prep for circle
+            "circle",                                                               # go in a crcle 
+            "end",                                                                  # terminate cleanly
+            {"dist": 0, "angle": 0, "vel": [0, 0], "col": "LIGHT_OFF", "wait": 0},  # alt terminate code (cant be used w/ circle)
         ]
 
 
         #self.set_velocity(*self.vel)
         curr_cmd = cmd[self.state-1]
 
+        print(self.angle_is_near(2*np.pi + self.cmd_start_angle), not self.is_near(self.cmd_start_dist))    
+
         if curr_cmd == "circle":
             print("CIRCLE_START", self.dist)
             self.vel = [0.3, 0.6]
             self.cmd_start_dist = self.dist
+            self.cmd_start_angle = self.angle
             self.state += 1
             self.LED_emitor_client("WHITE")
             print(curr_cmd)
-        elif curr_cmd == "end" and self.is_near((1.25*np.pi) + self.cmd_start_dist):
+        
+        elif curr_cmd == "end" and self.angle_is_near(2*np.pi + self.cmd_start_angle) and not self.dist == self.cmd_start_dist + 0.2:
             print("CIRCEL_END", self.dist)
             print(curr_cmd)
             self.vel = [0, 0]
             self.LED_emitor_client("LIGHT_OFF")
+            self.set_velocity()
             self.stop = True
 
         elif type(curr_cmd) != str and self.run_cmd(curr_cmd, self.state) and not self.stop:
