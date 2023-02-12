@@ -94,6 +94,7 @@ class LocationNode(DTROS):
 
     def cb_exit(self, msg):
         if msg.data:
+            rospy.loginfo("Total execution time: " + str(self.total_time_recorded))
             self.running = False
             rospy.signal_shutdown("ROBO MOVED")
 
@@ -148,7 +149,7 @@ class LocationNode(DTROS):
     #     wf_msg_theta.data = self.world_frame[2]
     #     self.bag.write('wf_x', wf_msg_x)
     #     self.bag.write('wf_y', wf_msg_y)
-    #     self.bag.write('wf_y', wf_msg_y)
+    #     self.bag.write('wf_y', wf_msg_theta)
 
 
 if __name__ == '__main__':
