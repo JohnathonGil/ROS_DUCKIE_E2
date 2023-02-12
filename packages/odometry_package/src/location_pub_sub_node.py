@@ -23,8 +23,7 @@ class LocationNode(DTROS):
         self.current_right_wheel_ticks = 0
         self.left_ticks = 0
         self.right_ticks = 0
-        self.intial_robot_frame = [0, 0, 0]
-        self.robot_frame = [0, 0, 0]
+        self.initial_robot_frame = [0, 0, 0]
         self.world_frame = [0, 0, 0]
         self.rotation = 0.0
         self.dist = 0.0
@@ -54,6 +53,9 @@ class LocationNode(DTROS):
         odometry_topic = "/%s" % os.environ['VEHICLE_NAME'] + "/wheel_odometry/pose"
         self.pub_odometry = rospy.Publisher(odometry_topic, Pose2DStamped, queue_size=1)
         self.log("Initialized")
+        
+        #self.bag = rosbag.Bag('/data/world_frame.bag', 'w')
+
 
     # Call back function to obtain encoder data and encoder time stanp
     def cb_encoder_data(self, msg, wheel):
@@ -104,16 +106,17 @@ class LocationNode(DTROS):
         self.dist = ((distance_left)+(distance_right))/2
         self.dist = self.r_value(self.dist)
 
-        self.robot_frame [0] = self.dist
-
         # Set the angle value equivalent to the theta of our robot frame
         self.rotation = ((distance_right-distance_left)/(2*self._baseline))
         self.rotation = self.r_value(self.rotation)
-        self.robot_frame [2] = self.rotation
         
-        self.world_frame [0] = self.robot_frame[0] * np.cos(self.robot_frame[2])
-        self.world_frame [1] = self.robot_frame [1] * np.sin(self.robot_frame[2])
-        self.world_frame [2] = self.robot_frame[2]
+        self.initial_robot_frame[0] += self.dist* np.cos(self.rotation% (2*np.pi))
+        self.initial_robot_frame[1] += self.dist * np.sin(self.rotation % (2*np.pi))
+        self.initial_robot_frame[2] += self.rotation % (2*np.pi)
+
+        self.world_frame[0] = self.initial_robot_frame[1] + 0.32
+        self.world_frame[1] = self.initial_robot_frame[0] + 0.32
+        self.world_frame[2] = self.initial_robot_frame[2] + (np.pi/2)
         # rospy.loginfo("Distance: " + str(self.dist))
         # rospy.loginfo("The  arc distance: " + str(self.rotation))
         # rospy.loginfo("The time: " + str(self.total_time_recorded))
@@ -134,40 +137,19 @@ class LocationNode(DTROS):
         odometry_msg.theta = self.rotation
         self.pub_odometry.publish(odometry_msg)
 
+    #------------------------ Ros Bag Code ---------------------------------------- 
     # def write_to_rosbag (self):
 
-    #     bag = rosbag.Bag('world_frame.bag', 'w')
+    #     wf_msg_x = Float32()
+    #     wf_msg_x.data = self.world_frame[0]
+    #     wf_msg_y = Float32()
+    #     wf_msg_y.data = self.world_frame[1]
+    #     wf_msg_theta = Float32()
+    #     wf_msg_theta.data = self.world_frame[2]
+    #     self.bag.write('wf_x', wf_msg_x)
+    #     self.bag.write('wf_y', wf_msg_y)
+    #     self.bag.write('wf_y', wf_msg_y)
 
-    #     try:
-    #         s = String()
-    #         s.data = 'foo'
-
-    #         i = Float32()
-    #         i.data = 42
-
-    #         bag.write('chatter', s)
-    #         bag.write('numbers', i)
-    #     finally:
-    #         bag.close()
-
-
-
-   # Function being used reset our message values for a clean shutdown
-    # def stop_recordings(self):
-    #         odometry_msg = Pose2DStamped()
-    #         odometry_msg.x = 0
-    #         odometry_msg.y = 0
-    #         odometry_msg.theta = 0
-    #         self.pub_odometry.publish(odometry_msg) 
-    #         rospy.loginfo("Shutting down node...")
-
-    # def angle_limit(theta):
-    #     if theta > 2 * np.pi:
-    #         return theta - 2 * np.pi
-    #     elif theta < 0:
-    #         return theta + 2 * np.pi
-    #     else:
-    #         return 
 
 if __name__ == '__main__':
     node = LocationNode(node_name='my_location_node')
@@ -175,5 +157,7 @@ if __name__ == '__main__':
     #node.publish_info()
     rospy.spin()
     rospy.loginfo("wheel_encoder_node is up and running...")
-
+    # if rospy.is_shutdown():
+    #     print("------- Closing ROSBAG ---------")
+    #     node.bag.close()
       

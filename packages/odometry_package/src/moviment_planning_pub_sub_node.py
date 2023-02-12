@@ -43,10 +43,13 @@ class MovimentPlanningNode(DTROS):
         self.vel = [0, 0]
 
         ############################################# CHANGE THIS IF ON A DIFFERENT DUCKIEBOT
-        self.forward_vel = [0.5, 0.57]
-        self.left = [-0.4, 0.4]
-        self.right = [0.4, -0.4]
+        # self.forward_vel = [0.5, 0.57]
+        # self.left = [-0.4, 0.4]
+        # self.right = [0.4, -0.4]
         ############################################# THIS IS SET FOR csc22904
+        self.forward_vel = [0.525, 0.5]
+        self.left = [-0.48, 0.45]
+        self.right = [0.48, -0.45]
 
         led_emitter = "/%s" % os.environ['VEHICLE_NAME'] + "/led_emitter_node/set_pattern"
         rospy.wait_for_service(led_emitter)
@@ -56,8 +59,7 @@ class MovimentPlanningNode(DTROS):
         robot_pose = "/%s" % os.environ['VEHICLE_NAME'] + "/wheel_odometry/pose"
         self.sub_location = rospy.Subscriber(robot_pose, Pose2DStamped, self.cb_location_data, queue_size=1)
 
-
-        
+ 
     # Publisher
         wheels_cmd = "/%s" % os.environ['VEHICLE_NAME'] + "/wheels_driver_node/wheels_cmd"
         self.pub_wheel_command = rospy.Publisher(wheels_cmd, WheelsCmdStamped, queue_size=1)
