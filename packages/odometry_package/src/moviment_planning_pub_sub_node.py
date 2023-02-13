@@ -69,6 +69,7 @@ class MovimentPlanningNode(DTROS):
 
         self.log("Initialized")
 
+    #Call back to retrive data from location publisher/subscriber
     def cb_location_data(self, data):
         self.dist = data.x
         self.angle = data.theta
@@ -98,52 +99,6 @@ class MovimentPlanningNode(DTROS):
         msg  = Bool()
         msg.data = self.stop
         self.exit_pub.publish(msg)
-
-        
-
-    # can we delete this?
-    def set_initial_distance(self):
-        
-        if self.set_start_dist:
-            self.starting_distance = self.dist
-            self.set_start_dist = False
-
-    # can we delete this?
-    def set_initial_angle(self):
-        if self.set_start_angle:
-            self.starting_angle = self.angle
-            self.set_start_angle = False
-
-    # can we delete this?
-    def LED_state(self, Color1, Color2, switch):
-        if switch == 0:
-            time = 5
-            self.LED_emitor_client(Color1)
-            rospy.sleep(time)
-            self.LED_emitor_client(Color2)
-            self.run_led = 1
-
-    # can we delete this?
-    def turn(self, direction):
-        self.set_initial_angle()
-        if direction == "right":
-            if self.angle_reached == 0:
-                self.set_velocity(0.4, -0.4)
-            elif self.angle_reached < -(np.pi/2)+0.4:
-                self.set_velocity(0.0, 0.0)
-
-        elif direction == "left":
-            if self.angle_reached == 0:
-                self.set_velocity(-0.4, 0.4)
-            elif self.angle_reached < (np.pi/2)-0.4:
-                self.set_velocity(0.0, 0.0)
-            
-
-    def drive_straight(self):
-        if self.distance_reached == 0:
-                self.set_velocity(0.4, 0.4)
-        elif self.distance_reached > 1.22:
-                self.set_velocity(0.0, 0.0)
         
     # check if the bot has come close to moving a dist
     def is_near(self, dist):
