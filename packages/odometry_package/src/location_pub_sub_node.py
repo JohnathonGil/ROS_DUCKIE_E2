@@ -95,6 +95,7 @@ class LocationNode(DTROS):
     def cb_exit(self, msg):
         if msg.data:
             rospy.loginfo("Total execution time: " + str(self.total_time_recorded))
+            rospy.loginfo("The World Frame of final location: " + str(self.world_frame))
             self.running = False
             rospy.signal_shutdown("ROBO MOVED")
 
