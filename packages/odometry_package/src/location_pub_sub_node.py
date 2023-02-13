@@ -124,6 +124,10 @@ class LocationNode(DTROS):
         # rospy.loginfo("The time: " + str(self.total_time_recorded))
 
         self.publish_info()
+
+        # Runs write ros bag every two seconds
+        # if np.round(self.total_time_recorded) % 2 == 0:
+        #     self.write_to_rosbag()
  
     # This function is to round up our float values by two decimals
     def r_value(self, value):
